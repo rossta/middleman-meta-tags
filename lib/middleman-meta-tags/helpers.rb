@@ -59,6 +59,7 @@ module Middleman
 
         set_meta_tags site: site_data['site']
         set_meta_tags 'og:site_name' => site_data['site']
+        set_meta_tags host: site_data['host']
 
         fall_through(site_data, :title, 'title')
         fall_through(site_data, :description, 'description')
@@ -68,13 +69,13 @@ module Middleman
         fall_through(site_data, 'twitter:card', 'twitter_card', 'summary_large_image')
         fall_through(site_data, 'twitter:creator', 'twitter_author')
         fall_through(site_data, 'twitter:description', 'description')
-        fall_through(site_data, 'twitter:image:src', 'pull_image')
+        pull_image(site_data, 'twitter:image:src', 'pull_image')
         fall_through(site_data, 'twitter:site', 'publisher_twitter')
         fall_through(site_data, 'twitter:title', 'title')
 
         # Open Graph
         fall_through(site_data, 'og:description', 'description')
-        fall_through(site_data, 'og:image', 'pull_image')
+        pull_image(site_data, 'og:image', 'pull_image')
         fall_through(site_data, 'og:title', 'title')
       end
 
@@ -83,11 +84,32 @@ module Middleman
       def fall_through(site_data, name, key, default = nil)
         need_customized = site_data[:customize_by_frontmatter]
         value = self.meta_tags[key] ||
-                (need_customized && current_page.data[key]) ||
-                site_data[key] ||
-                default
+          (need_customized && current_page.data[key]) ||
+          site_data[key] ||
+          default
+        value = yield value if block_given?
         set_meta_tags name => value unless value.blank?
         value
+      end
+
+      def pull_image(*args)
+        fall_through(*args) do |path|
+          return path if path =~ is_uri?(path)
+          meta_tags_image_url path
+        end
+      end
+
+      def meta_tags_image_url(source)
+        meta_tags_host + image_path(source)
+      end
+
+      def meta_tags_host
+        meta_tags[:host] || ""
+      end
+
+      # File actionpack/lib/action_view/asset_paths.rb, line 45
+      def is_uri?(path)
+        path =~ %{^[-a-z]+://|^(?:cid|data):|^//}
       end
 
       def full_title(meta_tags)
